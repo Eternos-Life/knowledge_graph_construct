@@ -74,7 +74,6 @@ declare -A FUNCTIONS=(
     ["interview_processing_agent.py"]="agentic-interview-processing-${ENVIRONMENT}"
     ["needs_analysis_agent.py"]="agentic-needs-analysis-${ENVIRONMENT}"
     ["hypergraph_builder_agent.py"]="agentic-hypergraph-builder-${ENVIRONMENT}"
-    ["nlp_processing_agent.py"]="agentic-nlp-processing-${ENVIRONMENT}"
 )
 
 # Deploy each function
