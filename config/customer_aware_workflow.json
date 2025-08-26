@@ -1,0 +1,307 @@
+{
+  "Comment": "Customer-Aware Agentic Framework Processing Pipeline",
+  "StartAt": "FileAnalysis",
+  "States": {
+    "FileAnalysis": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "agentic-file-analyzer-dev",
+        "Payload": {
+          "file_path.$": "$.file_path",
+          "customer_folder.$": "$.customer_folder",
+          "customer_name.$": "$.customer_name",
+          "processing_config.$": "$.processing_config"
+        }
+      },
+      "ResultPath": "$.file_analysis_result",
+      "Next": "ParseFileAnalysis",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleError",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "ParseFileAnalysis": {
+      "Type": "Pass",
+      "Parameters": {
+        "file_path.$": "$.file_path",
+        "customer_folder.$": "$.customer_folder",
+        "customer_name.$": "$.customer_name",
+        "processing_config.$": "$.processing_config",
+        "analysis.$": "$.file_analysis_result.Payload.body",
+        "parsed_analysis.$": "States.StringToJson($.file_analysis_result.Payload.body)"
+      },
+      "Next": "DetermineProcessingPath"
+    },
+    "DetermineProcessingPath": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.customer_folder",
+          "StringEquals": "01_jon_fortt",
+          "Next": "InterviewProcessing"
+        },
+        {
+          "Variable": "$.customer_folder",
+          "StringEquals": "00_tim_wolff",
+          "Next": "FinancialProcessing"
+        },
+        {
+          "Variable": "$.parsed_analysis.analysis.content_analysis.content_type",
+          "StringEquals": "interview_transcript",
+          "Next": "InterviewProcessing"
+        },
+        {
+          "Variable": "$.parsed_analysis.analysis.content_analysis.content_type",
+          "StringEquals": "financial_advice",
+          "Next": "FinancialProcessing"
+        }
+      ],
+      "Default": "GenericProcessing"
+    },
+    "InterviewProcessing": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "agentic-interview-processing-dev",
+        "Payload": {
+          "agent_spec": {
+            "agent_type": "interview_processing",
+            "processing_config": {
+              "file_path.$": "$.file_path",
+              "customer_folder.$": "$.customer_folder",
+              "customer_name.$": "$.customer_name",
+              "content_analysis.$": "$.parsed_analysis.analysis.content_analysis",
+              "metadata.$": "$.parsed_analysis.analysis.metadata",
+              "processing_mode": "interview_focused"
+            }
+          },
+          "execution_id.$": "$$.Execution.Name"
+        }
+      },
+      "ResultPath": "$.interview_result",
+      "Next": "NeedsAnalysis",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ]
+    },
+    "FinancialProcessing": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "agentic-interview-processing-dev",
+        "Payload": {
+          "agent_spec": {
+            "agent_type": "financial_processing",
+            "processing_config": {
+              "file_path.$": "$.file_path",
+              "customer_folder.$": "$.customer_folder",
+              "customer_name.$": "$.customer_name",
+              "content_analysis.$": "$.parsed_analysis.analysis.content_analysis",
+              "metadata.$": "$.parsed_analysis.analysis.metadata",
+              "processing_mode": "advisory_focused"
+            }
+          },
+          "execution_id.$": "$$.Execution.Name"
+        }
+      },
+      "ResultPath": "$.financial_result",
+      "Next": "NeedsAnalysis",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ]
+    },
+    "GenericProcessing": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "agentic-interview-processing-dev",
+        "Payload": {
+          "agent_spec": {
+            "agent_type": "generic_processing",
+            "processing_config": {
+              "file_path.$": "$.file_path",
+              "customer_folder.$": "$.customer_folder",
+              "customer_name.$": "$.customer_name",
+              "content_analysis.$": "$.parsed_analysis.analysis.content_analysis",
+              "metadata.$": "$.parsed_analysis.analysis.metadata",
+              "processing_mode": "standard"
+            }
+          },
+          "execution_id.$": "$$.Execution.Name"
+        }
+      },
+      "ResultPath": "$.generic_result",
+      "Next": "NeedsAnalysis",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ]
+    },
+    "NeedsAnalysis": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "agentic-needs-analysis-dev",
+        "Payload": {
+          "agent_spec": {
+            "agent_type": "needs_analysis",
+            "processing_config": {
+              "file_path.$": "$.file_path",
+              "customer_folder.$": "$.customer_folder",
+              "customer_name.$": "$.customer_name",
+              "content_result.$": "$",
+              "analysis_focus.$": "$.customer_folder"
+            }
+          },
+          "execution_id.$": "$$.Execution.Name"
+        }
+      },
+      "ResultPath": "$.needs_result",
+      "Next": "HypergraphBuilding",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ]
+    },
+    "HypergraphBuilding": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "agentic-hypergraph-builder-dev",
+        "Payload": {
+          "agent_spec": {
+            "agent_type": "hypergraph_building",
+            "processing_config": {
+              "file_path.$": "$.file_path",
+              "customer_folder.$": "$.customer_folder",
+              "customer_name.$": "$.customer_name",
+              "needs_analysis.$": "$.needs_result.Payload",
+              "customer_context": true
+            }
+          },
+          "execution_id.$": "$$.Execution.Name"
+        }
+      },
+      "ResultPath": "$.hypergraph_result",
+      "Next": "StoreResults",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ]
+    },
+    "StoreResults": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Parameters": {
+        "TableName": "agent-performance-metrics",
+        "Item": {
+          "execution_id": {
+            "S.$": "$$.Execution.Name"
+          },
+          "agent_type": {
+            "S": "customer_processing"
+          },
+          "file_path": {
+            "S.$": "$.file_path"
+          },
+          "customer_folder": {
+            "S.$": "$.customer_folder"
+          },
+          "customer_name": {
+            "S.$": "$.customer_name"
+          },
+          "content_type": {
+            "S.$": "$.parsed_analysis.analysis.content_analysis.content_type"
+          },
+          "language": {
+            "S.$": "$.parsed_analysis.analysis.content_analysis.language"
+          },
+          "processing_status": {
+            "S": "completed"
+          },
+          "timestamp": {
+            "S.$": "$$.State.EnteredTime"
+          },
+          "file_analysis": {
+            "S.$": "States.JsonToString($.parsed_analysis.analysis)"
+          },
+          "content_processing": {
+            "S.$": "States.JsonToString($)"
+          },
+          "needs_analysis": {
+            "S.$": "States.JsonToString($.needs_result.Payload)"
+          },
+          "hypergraph_data": {
+            "S.$": "States.JsonToString($.hypergraph_result.Payload)"
+          }
+        }
+      },
+      "End": true
+    },
+    "HandleError": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Parameters": {
+        "TableName": "agent-performance-metrics",
+        "Item": {
+          "execution_id": {
+            "S.$": "$$.Execution.Name"
+          },
+          "agent_type": {
+            "S": "customer_processing"
+          },
+          "file_path": {
+            "S.$": "$.file_path"
+          },
+          "customer_folder": {
+            "S.$": "$.customer_folder"
+          },
+          "processing_status": {
+            "S": "failed"
+          },
+          "timestamp": {
+            "S.$": "$$.State.EnteredTime"
+          },
+          "error_details": {
+            "S.$": "States.JsonToString($.error)"
+          }
+        }
+      },
+      "End": true
+    }
+  }
+}
