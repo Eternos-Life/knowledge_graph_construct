@@ -6,6 +6,8 @@ Enhanced with Dynamic Prompting for Content-Aware Analysis
 import json
 import boto3
 import os
+import time
+import uuid
 from decimal import Decimal
 from typing import Dict, List, Any, Tuple
 from dataclasses import dataclass
@@ -501,6 +503,8 @@ def lambda_handler(event, context):
     """
     Lambda handler for needs analysis agent - FIXED VERSION
     """
+    start_time = time.time()  # Track processing time
+    
     try:
         # Debug: Log the incoming event structure
         print(f"Received event keys: {list(event.keys())}")
@@ -917,13 +921,63 @@ def lambda_handler(event, context):
         
         print(f"Analysis complete. Top need: {needs_result.get('dominant_needs', [{}])[0] if needs_result.get('dominant_needs') else 'None'}")
         
-        # Record performance metrics - TEMPORARILY DISABLED TO FIX FLOAT ERROR
+        # Record performance metrics - FIXED VERSION
         try:
-            print(f"Skipping DynamoDB metrics recording to avoid float error")
-            # TODO: Re-enable after fixing float conversion
-            pass
+            # Initialize DynamoDB table (import boto3 locally to ensure availability)
+            import boto3
+            dynamodb = boto3.resource('dynamodb')
+            performance_table = dynamodb.Table('agent-performance-metrics')
+            
+            # Convert needs_result to DynamoDB-compatible format
+            def prepare_for_dynamodb(obj):
+                """Convert data to DynamoDB-compatible format"""
+                if isinstance(obj, float):
+                    return Decimal(str(obj))
+                elif isinstance(obj, dict):
+                    return {str(k): prepare_for_dynamodb(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [prepare_for_dynamodb(item) for item in obj]
+                elif isinstance(obj, tuple):
+                    return [prepare_for_dynamodb(item) for item in obj]
+                elif hasattr(obj, 'value'):  # Handle enum objects
+                    return str(obj.value)
+                else:
+                    return obj
+            
+            # Prepare the data for DynamoDB
+            db_compatible_result = prepare_for_dynamodb(needs_result)
+            
+            # Extract key metrics for storage
+            dominant_needs = db_compatible_result.get('dominant_needs', [])
+            confidence_score = db_compatible_result.get('confidence_score', Decimal('0.0'))
+            
+            # Convert dominant_needs to a simple list of strings
+            if dominant_needs and isinstance(dominant_needs, list):
+                if len(dominant_needs) > 0 and isinstance(dominant_needs[0], list):
+                    # Format: [['need_name', score], ...]
+                    dominant_needs_list = [item[0] if isinstance(item, list) and len(item) > 0 else str(item) for item in dominant_needs]
+                else:
+                    # Format: ['need_name', ...]
+                    dominant_needs_list = [str(item) for item in dominant_needs]
+            else:
+                dominant_needs_list = []
+            
+            performance_table.put_item(
+                Item={
+                    'execution_id': execution_id,
+                    'agent_type': 'needs_analysis',
+                    'timestamp': str(uuid.uuid4()),  # Use UUID for sort key
+                    'processing_success': True,
+                    'dominant_needs': dominant_needs_list,
+                    'confidence_score': confidence_score,
+                    'processing_time': Decimal(str(time.time() - start_time)) if 'start_time' in locals() else Decimal('0.0')
+                }
+            )
+            print(f"Successfully recorded needs analysis metrics to DynamoDB")
+            
         except Exception as metrics_error:
             print(f"Metrics recording failed: {metrics_error}")
+            # Don't fail the whole function if metrics recording fails
         
         # Convert Decimal objects to float for JSON serialization
         def decimal_to_float(obj):
@@ -958,13 +1012,28 @@ def lambda_handler(event, context):
     except Exception as e:
         print(f"Lambda handler error: {e}")
         
-        # Record failure - TEMPORARILY DISABLED TO FIX FLOAT ERROR
+        # Record failure - FIXED VERSION
         try:
-            print(f"Skipping DynamoDB error recording to avoid float error")
-            # TODO: Re-enable after fixing float conversion
-            pass
+            # Initialize DynamoDB table (import boto3 locally to ensure availability)
+            import boto3
+            dynamodb = boto3.resource('dynamodb')
+            performance_table = dynamodb.Table('agent-performance-metrics')
+            
+            performance_table.put_item(
+                Item={
+                    'execution_id': execution_id,
+                    'agent_type': 'needs_analysis',
+                    'timestamp': str(uuid.uuid4()),  # Use UUID for sort key
+                    'processing_success': False,
+                    'error': str(e)[:500],  # Truncate error message
+                    'processing_time': Decimal(str(time.time() - start_time)) if 'start_time' in locals() else Decimal('0.0')
+                }
+            )
+            print(f"Successfully recorded needs analysis error to DynamoDB")
+            
         except Exception as metrics_error:
             print(f"Error metrics recording failed: {metrics_error}")
+            # Don't fail the whole function if metrics recording fails
         
         return {
             'statusCode': 500,
