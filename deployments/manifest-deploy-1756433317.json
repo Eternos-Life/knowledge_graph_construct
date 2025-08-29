@@ -1,0 +1,45 @@
+{
+  "deployment_id": "deploy-1756433317",
+  "timestamp": "2025-08-28T19:08:37.606571",
+  "environment": "dev",
+  "region": "us-west-1",
+  "git_commit": "97dd020",
+  "functions": {
+    "agentic-file-analyzer-dev": {
+      "version": "1",
+      "code_sha256": "Z9vrIt7KKh+ZQjI0DVbdJXoreADKqtTumBPZBxotmFs=",
+      "last_modified": "2025-08-29T02:08:25.000+0000",
+      "aliases": {
+        "LIVE": "1"
+      }
+    },
+    "agentic-interview-processing-dev": {
+      "version": "1",
+      "code_sha256": "e5Fb+SNay6A4Jj0z6+fCmd6SKggTdNX64BeCHSt2urA=",
+      "last_modified": "2025-08-29T02:08:28.000+0000",
+      "aliases": {
+        "LIVE": "1"
+      }
+    },
+    "agentic-needs-analysis-dev": {
+      "version": "1",
+      "code_sha256": "l6LhtSF9Z6d53B/3DxNQjA3UuDVxh9jhLjoPSg98ZiI=",
+      "last_modified": "2025-08-29T02:08:31.000+0000",
+      "aliases": {
+        "LIVE": "1"
+      }
+    },
+    "agentic-hypergraph-builder-dev": {
+      "version": "1",
+      "code_sha256": "Dn0SM7tCd9hTe9CFlrj+4RYgwXbeUWFwQBsm9zGKL9I=",
+      "last_modified": "2025-08-29T02:08:34.000+0000",
+      "aliases": {
+        "LIVE": "1"
+      }
+    }
+  },
+  "step_functions": {
+    "state_machine_arn": "arn:aws:states:us-west-1:765455500375:stateMachine:agentic-framework-processing-workflow-dev",
+    "update_date": "2025-08-28 19:08:37.577000-07:00"
+  }
+}

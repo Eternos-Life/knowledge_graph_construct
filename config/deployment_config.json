@@ -1,0 +1,49 @@
+{
+  "deployment_settings": {
+    "environment": "dev",
+    "region": "us-west-1",
+    "profile": "development",
+    "versioning": {
+      "enabled": true,
+      "create_aliases": true,
+      "keep_versions": 5,
+      "auto_cleanup": true
+    },
+    "aliases": {
+      "live": "LIVE",
+      "rollback": "ROLLBACK",
+      "staging": "STAGING"
+    }
+  },
+  "functions": {
+    "agentic-file-analyzer-dev": {
+      "source_file": "enhanced_file_analyzer.py",
+      "memory_size": 512,
+      "timeout": 300,
+      "description": "File analysis and content classification agent"
+    },
+    "agentic-interview-processing-dev": {
+      "source_file": "interview_processing_agent.py",
+      "memory_size": 1024,
+      "timeout": 900,
+      "description": "Interview transcript processing and analysis agent"
+    },
+    "agentic-needs-analysis-dev": {
+      "source_file": "needs_analysis_agent.py",
+      "memory_size": 1024,
+      "timeout": 900,
+      "description": "Tony Robbins 6 Human Needs analysis agent"
+    },
+    "agentic-hypergraph-builder-dev": {
+      "source_file": "hypergraph_builder_agent.py",
+      "memory_size": 1024,
+      "timeout": 900,
+      "description": "Knowledge graph construction and relationship mapping agent"
+    }
+  },
+  "step_functions": {
+    "state_machine_name": "agentic-framework-processing-workflow-dev",
+    "definition_file": "config/customer_aware_workflow.json",
+    "use_aliases": true
+  }
+}

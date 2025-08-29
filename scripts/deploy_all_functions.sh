@@ -76,7 +76,7 @@ declare -A FUNCTIONS=(
     ["hypergraph_builder_agent.py"]="agentic-hypergraph-builder-${ENVIRONMENT}"
 )
 
-# Deploy each function
+# Deploy each function with versioning
 for file in "${!FUNCTIONS[@]}"; do
     function_name="${FUNCTIONS[$file]}"
     
@@ -88,14 +88,70 @@ for file in "${!FUNCTIONS[@]}"; do
         zip -q "$zip_file" "$file"
         
         # Update function code
-        if aws lambda update-function-code \
+        if UPDATE_RESULT=$(aws lambda update-function-code \
             --function-name "$function_name" \
             --zip-file "fileb://$zip_file" \
             --region "$REGION" \
-            --profile "$PROFILE" > /dev/null 2>&1; then
-            print_status "Deployed $function_name"
+            --profile "$PROFILE" 2>&1); then
+            
+            print_status "Code updated for $function_name"
+            
+            # Wait for function to be updated (avoid InvalidParameterValueException)
+            echo -e "${YELLOW}⏳ Waiting for function update to complete...${NC}"
+            aws lambda wait function-updated \
+                --function-name "$function_name" \
+                --region "$REGION" \
+                --profile "$PROFILE"
+            
+            # Create a new version
+            echo -e "${YELLOW}🏷️  Creating new version for $function_name...${NC}"
+            if VERSION_RESULT=$(aws lambda publish-version \
+                --function-name "$function_name" \
+                --description "Deployed on $(date '+%Y-%m-%d %H:%M:%S') - Commit: $(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')" \
+                --region "$REGION" \
+                --profile "$PROFILE" 2>&1); then
+                
+                # Extract version number
+                VERSION_NUMBER=$(echo "$VERSION_RESULT" | jq -r '.Version' 2>/dev/null || echo "unknown")
+                print_status "Created version $VERSION_NUMBER for $function_name"
+                
+                # Update alias to point to new version (create if doesn't exist)
+                ALIAS_NAME="LIVE"
+                echo -e "${YELLOW}🔗 Updating alias $ALIAS_NAME to version $VERSION_NUMBER...${NC}"
+                
+                # Try to update alias first
+                if aws lambda update-alias \
+                    --function-name "$function_name" \
+                    --name "$ALIAS_NAME" \
+                    --function-version "$VERSION_NUMBER" \
+                    --description "Live version updated on $(date '+%Y-%m-%d %H:%M:%S')" \
+                    --region "$REGION" \
+                    --profile "$PROFILE" > /dev/null 2>&1; then
+                    print_status "Updated alias $ALIAS_NAME to version $VERSION_NUMBER"
+                else
+                    # If update fails, try to create alias
+                    if aws lambda create-alias \
+                        --function-name "$function_name" \
+                        --name "$ALIAS_NAME" \
+                        --function-version "$VERSION_NUMBER" \
+                        --description "Live version created on $(date '+%Y-%m-%d %H:%M:%S')" \
+                        --region "$REGION" \
+                        --profile "$PROFILE" > /dev/null 2>&1; then
+                        print_status "Created alias $ALIAS_NAME pointing to version $VERSION_NUMBER"
+                    else
+                        print_warning "Failed to create/update alias for $function_name"
+                    fi
+                fi
+                
+                # Store version info for later use
+                echo "$function_name:$VERSION_NUMBER" >> "/tmp/deployed_versions.txt"
+                
+            else
+                print_warning "Failed to create version for $function_name: $VERSION_RESULT"
+            fi
+            
         else
-            print_warning "Failed to deploy $function_name (function may not exist yet)"
+            print_warning "Failed to deploy $function_name: $UPDATE_RESULT"
         fi
         
         # Clean up zip file
@@ -217,6 +273,25 @@ fi
 
 echo ""
 
+# Version Summary
+echo ""
+echo -e "${BLUE}📋 Version Summary${NC}"
+echo "========================================"
+
+if [ -f "/tmp/deployed_versions.txt" ]; then
+    echo "Deployed versions:"
+    while IFS=':' read -r function_name version_number; do
+        echo "  📦 $function_name → Version $version_number"
+    done < "/tmp/deployed_versions.txt"
+    
+    # Clean up temp file
+    rm -f "/tmp/deployed_versions.txt"
+else
+    echo "No version information available"
+fi
+
+echo ""
+
 # Final summary
 echo -e "${BLUE}📋 Deployment Summary${NC}"
 echo "========================================"
@@ -228,5 +303,6 @@ echo "1. Verify all functions are working: aws lambda list-functions --profile $
 echo "2. Test the complete framework: python test_complete_framework.py <file_path>"
 echo "3. Monitor executions in AWS Step Functions console"
 echo "4. Check results in DynamoDB table: $DYNAMODB_TABLE"
+echo "5. View function versions: aws lambda list-versions-by-function --function-name <function-name> --profile $PROFILE"
 echo ""
 echo -e "${BLUE}🎉 Enhanced Digital Twin Agentic Framework is ready for use!${NC}"

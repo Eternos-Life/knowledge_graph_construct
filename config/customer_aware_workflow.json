@@ -6,7 +6,7 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "FunctionName": "agentic-file-analyzer-dev",
+        "FunctionName": "agentic-file-analyzer-dev:LIVE",
         "Payload": {
           "file_path.$": "$.file_path",
           "customer_folder.$": "$.customer_folder",
@@ -74,7 +74,7 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "FunctionName": "agentic-interview-processing-dev",
+        "FunctionName": "agentic-interview-processing-dev:LIVE",
         "Payload": {
           "agent_spec": {
             "agent_type": "interview_processing",
@@ -105,7 +105,7 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "FunctionName": "agentic-interview-processing-dev",
+        "FunctionName": "agentic-interview-processing-dev:LIVE",
         "Payload": {
           "agent_spec": {
             "agent_type": "financial_processing",
@@ -136,7 +136,7 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "FunctionName": "agentic-interview-processing-dev",
+        "FunctionName": "agentic-interview-processing-dev:LIVE",
         "Payload": {
           "agent_spec": {
             "agent_type": "generic_processing",
@@ -167,7 +167,7 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "FunctionName": "agentic-needs-analysis-dev",
+        "FunctionName": "agentic-needs-analysis-dev:LIVE",
         "Payload": {
           "agent_spec": {
             "agent_type": "needs_analysis",
@@ -197,7 +197,7 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "FunctionName": "agentic-hypergraph-builder-dev",
+        "FunctionName": "agentic-hypergraph-builder-dev:LIVE",
         "Payload": {
           "agent_spec": {
             "agent_type": "hypergraph_building",

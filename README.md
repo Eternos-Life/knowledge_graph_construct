@@ -75,6 +75,12 @@ terraform apply
 
 ### 5. Deploy Lambda Functions
 
+**Option A: Advanced Deployment with Versioning (Recommended)**
+```bash
+python scripts/deploy_with_versioning.py
+```
+
+**Option B: Traditional Deployment (Enhanced with Versioning)**
 ```bash
 ./scripts/deploy_all_functions.sh
 ```
@@ -97,6 +103,27 @@ python test_complete_framework.py "high_customers/01_jon_fortt/sample_file.txt"
 | **Success Rate** | 100% | ✅ Perfect |
 | **Error Rate** | 0% | ✅ No errors |
 | **Routing Accuracy** | 100% | ✅ Perfect |
+
+## 🔄 Version Management
+
+### Lambda Function Versioning
+- **Automatic Versioning**: Every deployment creates immutable versions
+- **Alias Management**: LIVE, ROLLBACK, and STAGING aliases
+- **Easy Rollbacks**: Quick rollback to any previous version
+- **Deployment Tracking**: Complete audit trail with git commits
+
+```bash
+# List all versions and aliases
+./scripts/manage_versions.sh list
+
+# Rollback to previous version
+./scripts/manage_versions.sh rollback agentic-file-analyzer-dev 2
+
+# Clean up old versions
+./scripts/manage_versions.sh cleanup 5
+```
+
+See [Versioning Guide](docs/versioning_guide.md) for complete documentation.
 
 ## 🔄 Processing Paths
 
