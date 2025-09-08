@@ -35,10 +35,10 @@
       "description": "Tony Robbins 6 Human Needs analysis agent"
     },
     "agentic-hypergraph-builder-dev": {
-      "source_file": "hypergraph_builder_agent.py",
+      "source_file": "enhanced_hypergraph_builder_agent_v2.py",
       "memory_size": 1024,
       "timeout": 900,
-      "description": "Knowledge graph construction and relationship mapping agent"
+      "description": "Enhanced Hypergraph Builder V2 - Cleaner entity extraction and improved relationship detection"
     }
   },
   "step_functions": {
