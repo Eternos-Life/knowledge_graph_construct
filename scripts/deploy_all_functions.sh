@@ -68,17 +68,39 @@ echo "----------------------------------------"
 
 cd lambda-functions
 
-# Function names mapping
-declare -A FUNCTIONS=(
-    ["enhanced_file_analyzer.py"]="agentic-file-analyzer-${ENVIRONMENT}"
-    ["interview_processing_agent.py"]="agentic-interview-processing-${ENVIRONMENT}"
-    ["needs_analysis_agent.py"]="agentic-needs-analysis-${ENVIRONMENT}"
-    ["hypergraph_builder_agent.py"]="agentic-hypergraph-builder-${ENVIRONMENT}"
+# Function files to deploy
+FUNCTION_FILES=(
+    "enhanced_file_analyzer.py"
+    "interview_processing_agent.py"
+    "needs_analysis_agent.py"
+    "enhanced_hypergraph_builder_agent_v2.py"
 )
 
+# Function to get Lambda function name from file name
+get_function_name() {
+    local file=$1
+    case $file in
+        "enhanced_file_analyzer.py")
+            echo "agentic-file-analyzer-${ENVIRONMENT}"
+            ;;
+        "interview_processing_agent.py")
+            echo "agentic-interview-processing-${ENVIRONMENT}"
+            ;;
+        "needs_analysis_agent.py")
+            echo "agentic-needs-analysis-${ENVIRONMENT}"
+            ;;
+        "enhanced_hypergraph_builder_agent_v2.py")
+            echo "agentic-hypergraph-builder-${ENVIRONMENT}"
+            ;;
+        *)
+            echo "unknown-function"
+            ;;
+    esac
+}
+
 # Deploy each function with versioning
-for file in "${!FUNCTIONS[@]}"; do
-    function_name="${FUNCTIONS[$file]}"
+for file in "${FUNCTION_FILES[@]}"; do
+    function_name=$(get_function_name "$file")
     
     if [ -f "$file" ]; then
         echo -e "${YELLOW}📦 Deploying $function_name...${NC}"
@@ -204,7 +226,8 @@ echo "----------------------------------------"
 
 # Check Lambda functions
 echo "Lambda Functions:"
-for function_name in "${FUNCTIONS[@]}"; do
+for file in "${FUNCTION_FILES[@]}"; do
+    function_name=$(get_function_name "$file")
     if aws lambda get-function \
         --function-name "$function_name" \
         --region "$REGION" \

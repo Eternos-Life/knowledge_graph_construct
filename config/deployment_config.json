@@ -29,10 +29,10 @@
       "description": "Interview transcript processing and analysis agent"
     },
     "agentic-needs-analysis-dev": {
-      "source_file": "needs_analysis_agent.py",
+      "source_file": "needs_analysis_agent_fixed.py",
       "memory_size": 1024,
       "timeout": 900,
-      "description": "Tony Robbins 6 Human Needs analysis agent"
+      "description": "Tony Robbins 6 Human Needs analysis agent - Fixed AWS compatibility"
     },
     "agentic-hypergraph-builder-dev": {
       "source_file": "enhanced_hypergraph_builder_agent_v2.py",
