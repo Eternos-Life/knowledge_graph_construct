@@ -298,3 +298,17 @@ temp_*.py
 # Deployment artifacts
 *.zip
 deployment_logs/
+
+# Kiro IDE specific files
+.kiro/
+
+# Testing and development scripts - keep these
+# testing/
+# scripts/
+
+# Debug scripts - exclude from repository
+testing/debug/
+
+# Documentation and examples - exclude from repository
+docs/
+examples/

@@ -1,0 +1,99 @@
+{
+  "Comment": "Enhanced Digital Twin Agentic Framework with Customer Graph Persistence",
+  "StartAt": "ProcessFile",
+  "States": {
+    "ProcessFile": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:${region}:${account_id}:function:agentic-file-analyzer-${environment}",
+      "Next": "BuildHypergraph",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleProcessingError"
+        }
+      ]
+    },
+    "BuildHypergraph": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:${region}:${account_id}:function:agentic-hypergraph-builder-${environment}",
+      "Next": "ExtractGraphData",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleHypergraphError"
+        }
+      ]
+    },
+    "ExtractGraphData": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:${region}:${account_id}:function:graph-extraction-agent-${environment}",
+      "Next": "UpdateProcessingStatus",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleExtractionError"
+        }
+      ]
+    },
+    "UpdateProcessingStatus": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Parameters": {
+        "TableName": "agent-performance-metrics",
+        "Item": {
+          "execution_id": {"S.$": "$.execution_id"},
+          "agent_type": {"S": "complete_pipeline"},
+          "timestamp": {"S.$": "$.State.EnteredTime"},
+          "status": {"S": "completed"},
+          "graph_extraction_status": {"S.$": "$.s3_location"}
+        }
+      },
+      "End": true
+    },
+    "HandleProcessingError": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Parameters": {
+        "TableName": "agent-performance-metrics",
+        "Item": {
+          "execution_id": {"S.$": "$.execution_id"},
+          "agent_type": {"S": "file_processing"},
+          "timestamp": {"S.$": "$.State.EnteredTime"},
+          "status": {"S": "failed"},
+          "error": {"S.$": "$.Error"}
+        }
+      },
+      "End": true
+    },
+    "HandleHypergraphError": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Parameters": {
+        "TableName": "agent-performance-metrics",
+        "Item": {
+          "execution_id": {"S.$": "$.execution_id"},
+          "agent_type": {"S": "hypergraph_building"},
+          "timestamp": {"S.$": "$.State.EnteredTime"},
+          "status": {"S": "failed"},
+          "error": {"S.$": "$.Error"}
+        }
+      },
+      "End": true
+    },
+    "HandleExtractionError": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Parameters": {
+        "TableName": "agent-performance-metrics",
+        "Item": {
+          "execution_id": {"S.$": "$.execution_id"},
+          "agent_type": {"S": "graph_extraction"},
+          "timestamp": {"S.$": "$.State.EnteredTime"},
+          "status": {"S": "failed"},
+          "error": {"S.$": "$.Error"}
+        }
+      },
+      "End": true
+    }
+  }
+}

@@ -213,6 +213,36 @@
         }
       },
       "ResultPath": "$.hypergraph_result",
+      "Next": "ExtractGraphData",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleHypergraphError",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "ExtractGraphData": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "graph-extraction-agent-dev",
+        "Payload": {
+          "execution_id.$": "$$.Execution.Name",
+          "customer_id.$": "$.customer_folder",
+          "source_file.$": "$.file_path",
+          "result.$": "$.hypergraph_result.Payload"
+        }
+      },
+      "ResultPath": "$.graph_extraction_result",
       "Next": "StoreResults",
       "Retry": [
         {
@@ -220,6 +250,13 @@
           "IntervalSeconds": 2,
           "MaxAttempts": 3,
           "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleGraphExtractionError",
+          "ResultPath": "$.error"
         }
       ]
     },
@@ -267,6 +304,15 @@
           },
           "hypergraph_data": {
             "S.$": "States.JsonToString($.hypergraph_result.Payload)"
+          },
+          "graph_extraction_data": {
+            "S.$": "$.graph_extraction_result.Payload.body"
+          },
+          "graph_extraction_status": {
+            "S.$": "States.Format('{}', $.graph_extraction_result.Payload.statusCode)"
+          },
+          "s3_location": {
+            "S": "pending_extraction"
           }
         }
       },
@@ -295,6 +341,68 @@
           },
           "timestamp": {
             "S.$": "$$.State.EnteredTime"
+          },
+          "error_details": {
+            "S.$": "States.JsonToString($.error)"
+          }
+        }
+      },
+      "End": true
+    },
+    "HandleHypergraphError": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Parameters": {
+        "TableName": "agent-performance-metrics",
+        "Item": {
+          "execution_id": {
+            "S.$": "$$.Execution.Name"
+          },
+          "agent_type": {
+            "S": "hypergraph_building"
+          },
+          "file_path": {
+            "S.$": "$.file_path"
+          },
+          "customer_folder": {
+            "S.$": "$.customer_folder"
+          },
+          "processing_status": {
+            "S": "failed"
+          },
+          "timestamp": {
+            "S.$": "$.State.EnteredTime"
+          },
+          "error_details": {
+            "S.$": "States.JsonToString($.error)"
+          }
+        }
+      },
+      "End": true
+    },
+    "HandleGraphExtractionError": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Parameters": {
+        "TableName": "agent-performance-metrics",
+        "Item": {
+          "execution_id": {
+            "S.$": "$$.Execution.Name"
+          },
+          "agent_type": {
+            "S": "graph_extraction"
+          },
+          "file_path": {
+            "S.$": "$.file_path"
+          },
+          "customer_folder": {
+            "S.$": "$.customer_folder"
+          },
+          "processing_status": {
+            "S": "failed"
+          },
+          "timestamp": {
+            "S.$": "$.State.EnteredTime"
           },
           "error_details": {
             "S.$": "States.JsonToString($.error)"
