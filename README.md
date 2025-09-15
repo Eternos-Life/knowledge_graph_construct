@@ -95,10 +95,10 @@ python scripts/deploy_with_versioning.py
 
 ```bash
 # Test with Tim Wolff file (Financial Processing)
-python test_complete_framework.py "high_customers/00_tim_wolff/sample_file.txt"
+python testing/integration/test_complete_framework.py "high_customers/00_tim_wolff/sample_file.txt"
 
 # Test with Jon Fortt file (Interview Processing)
-python test_complete_framework.py "high_customers/01_jon_fortt/sample_file.txt"
+python testing/integration/test_complete_framework.py "high_customers/01_jon_fortt/sample_file.txt"
 ```
 
 ## 📊 Performance Metrics
@@ -153,12 +153,12 @@ python -m pytest tests/
 
 ### Integration Tests
 ```bash
-python test_complete_framework.py <file_path>
+python testing/integration/test_complete_framework.py <file_path>
 ```
 
-### Simulation Tests
+### Neptune Integration Tests
 ```bash
-python simulate_complete_framework.py <file_path>
+python testing/integration/test_neptune_simple.py
 ```
 
 ### Neptune System Tests
@@ -205,10 +205,11 @@ knowledge_graph_construct/
 │   ├── test_deployment.sh
 │   ├── neptune_bulk_upload_simple.py
 │   └── neptune_customer_graph_reader.py
-├── tests/
-│   ├── test_complete_framework.py
-│   ├── simulate_complete_framework.py
-│   └── framework_validation_summary.md
+├── testing/
+│   ├── integration/
+│   │   ├── test_complete_framework.py
+│   │   └── test_neptune_simple.py
+│   └── test_*.py
 ├── docs/
 │   ├── architecture.md
 │   ├── deployment_guide.md
@@ -253,8 +254,9 @@ knowledge_graph_construct/
 
 - [Architecture Overview](docs/architecture.md)
 - [Deployment Guide](docs/deployment_guide.md)
-- [API Reference](docs/api_reference.md)
-- [Testing Guide](docs/testing_guide.md)
+- [Versioning Guide](docs/versioning_guide.md)
+- [Neptune Integration Guide](docs/neptune_integration_success_summary.md)
+- [Customer Graph Infrastructure](docs/customer-graph-infrastructure.md)
 
 ## 🔧 Configuration
 
