@@ -1,0 +1,585 @@
+{
+  "Comment": "Customer-Aware Agentic Framework Processing Pipeline with Asynchronous Neptune Bulk Upload",
+  "StartAt": "FileAnalysis",
+  "States": {
+    "FileAnalysis": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "agentic-file-analyzer-dev:LIVE",
+        "Payload": {
+          "file_path.$": "$.file_path",
+          "customer_folder.$": "$.customer_folder",
+          "customer_name.$": "$.customer_name",
+          "processing_config.$": "$.processing_config"
+        }
+      },
+      "ResultPath": "$.file_analysis_result",
+      "Next": "ParseFileAnalysis",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleError",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "ParseFileAnalysis": {
+      "Type": "Pass",
+      "Parameters": {
+        "file_path.$": "$.file_path",
+        "customer_folder.$": "$.customer_folder",
+        "customer_name.$": "$.customer_name",
+        "processing_config.$": "$.processing_config",
+        "analysis.$": "$.file_analysis_result.Payload.body",
+        "parsed_analysis.$": "States.StringToJson($.file_analysis_result.Payload.body)"
+      },
+      "Next": "DetermineProcessingPath"
+    },
+    "DetermineProcessingPath": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.customer_folder",
+          "StringEquals": "01_jon_fortt",
+          "Next": "InterviewProcessing"
+        },
+        {
+          "Variable": "$.customer_folder",
+          "StringEquals": "00_tim_wolff",
+          "Next": "FinancialProcessing"
+        },
+        {
+          "Variable": "$.parsed_analysis.analysis.content_analysis.content_type",
+          "StringEquals": "interview_transcript",
+          "Next": "InterviewProcessing"
+        },
+        {
+          "Variable": "$.parsed_analysis.analysis.content_analysis.content_type",
+          "StringEquals": "financial_advice",
+          "Next": "FinancialProcessing"
+        }
+      ],
+      "Default": "GenericProcessing"
+    },
+    "InterviewProcessing": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "agentic-interview-processing-dev:LIVE",
+        "Payload": {
+          "agent_spec": {
+            "agent_type": "interview_processing",
+            "processing_config": {
+              "file_path.$": "$.file_path",
+              "customer_folder.$": "$.customer_folder",
+              "customer_name.$": "$.customer_name",
+              "content_analysis.$": "$.parsed_analysis.analysis.content_analysis",
+              "metadata.$": "$.parsed_analysis.analysis.metadata",
+              "processing_mode": "interview_focused"
+            }
+          },
+          "execution_id.$": "$$.Execution.Name"
+        }
+      },
+      "ResultPath": "$.interview_result",
+      "Next": "NeedsAnalysis",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ]
+    },
+    "FinancialProcessing": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "agentic-interview-processing-dev:LIVE",
+        "Payload": {
+          "agent_spec": {
+            "agent_type": "financial_processing",
+            "processing_config": {
+              "file_path.$": "$.file_path",
+              "customer_folder.$": "$.customer_folder",
+              "customer_name.$": "$.customer_name",
+              "content_analysis.$": "$.parsed_analysis.analysis.content_analysis",
+              "metadata.$": "$.parsed_analysis.analysis.metadata",
+              "processing_mode": "advisory_focused"
+            }
+          },
+          "execution_id.$": "$$.Execution.Name"
+        }
+      },
+      "ResultPath": "$.financial_result",
+      "Next": "NeedsAnalysis",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ]
+    },
+    "GenericProcessing": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "agentic-interview-processing-dev:LIVE",
+        "Payload": {
+          "agent_spec": {
+            "agent_type": "generic_processing",
+            "processing_config": {
+              "file_path.$": "$.file_path",
+              "customer_folder.$": "$.customer_folder",
+              "customer_name.$": "$.customer_name",
+              "content_analysis.$": "$.parsed_analysis.analysis.content_analysis",
+              "metadata.$": "$.parsed_analysis.analysis.metadata",
+              "processing_mode": "standard"
+            }
+          },
+          "execution_id.$": "$$.Execution.Name"
+        }
+      },
+      "ResultPath": "$.generic_result",
+      "Next": "NeedsAnalysis",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ]
+    },
+    "NeedsAnalysis": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "agentic-needs-analysis-dev:LIVE",
+        "Payload": {
+          "agent_spec": {
+            "agent_type": "needs_analysis",
+            "processing_config": {
+              "file_path.$": "$.file_path",
+              "customer_folder.$": "$.customer_folder",
+              "customer_name.$": "$.customer_name",
+              "content_result.$": "$",
+              "analysis_focus.$": "$.customer_folder"
+            }
+          },
+          "execution_id.$": "$$.Execution.Name"
+        }
+      },
+      "ResultPath": "$.needs_result",
+      "Next": "HypergraphBuilding",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ]
+    },
+    "HypergraphBuilding": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "agentic-hypergraph-builder-dev:LIVE",
+        "Payload": {
+          "agent_spec": {
+            "agent_type": "hypergraph_building",
+            "processing_config": {
+              "file_path.$": "$.file_path",
+              "customer_folder.$": "$.customer_folder",
+              "customer_name.$": "$.customer_name",
+              "needs_analysis.$": "$.needs_result.Payload",
+              "customer_context": true
+            }
+          },
+          "execution_id.$": "$$.Execution.Name"
+        }
+      },
+      "ResultPath": "$.hypergraph_result",
+      "Next": "ExtractGraphData",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleHypergraphError",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "ExtractGraphData": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "graph-extraction-agent-dev",
+        "Payload": {
+          "execution_id.$": "$$.Execution.Name",
+          "customer_id.$": "$.customer_folder",
+          "source_file.$": "$.file_path",
+          "result.$": "$.hypergraph_result.Payload"
+        }
+      },
+      "ResultPath": "$.graph_extraction_result",
+      "Next": "ParseGraphExtractionResult",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleGraphExtractionError",
+          "ResultPath": "$.error"
+        }
+      ]
+    },
+    "ParseGraphExtractionResult": {
+      "Type": "Pass",
+      "Parameters": {
+        "file_path.$": "$.file_path",
+        "customer_folder.$": "$.customer_folder",
+        "customer_name.$": "$.customer_name",
+        "processing_config.$": "$.processing_config",
+        "parsed_analysis.$": "$.parsed_analysis",
+        "needs_result.$": "$.needs_result",
+        "hypergraph_result.$": "$.hypergraph_result",
+        "graph_extraction_result.$": "$.graph_extraction_result",
+        "graph_extraction_parsed.$": "States.StringToJson($.graph_extraction_result.Payload.body)"
+      },
+      "Next": "CheckNeptuneBulkUploadEnabled"
+    },
+    "CheckNeptuneBulkUploadEnabled": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.graph_extraction_parsed.s3_location",
+          "IsPresent": true,
+          "Next": "TriggerAsyncNeptuneBulkUpload"
+        }
+      ],
+      "Default": "StoreResults"
+    },
+    "TriggerAsyncNeptuneBulkUpload": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "neptune-bulk-upload-trigger-dev",
+        "InvocationType": "Event",
+        "Payload": {
+          "bucket_name": "agentic-framework-customer-graphs-dev-765455500375",
+          "customer_id.$": "$.customer_folder",
+          "extraction_id.$": "$.graph_extraction_parsed.result.extraction_id",
+          "s3_location.$": "$.graph_extraction_parsed.result.s3_location",
+          "nodes_count.$": "$.graph_extraction_parsed.result.nodes_extracted",
+          "edges_count.$": "$.graph_extraction_parsed.result.edges_extracted",
+          "source_file.$": "$.file_path",
+          "execution_id.$": "$$.Execution.Name",
+          "timestamp.$": "$$.State.EnteredTime",
+          "async_mode": true
+        }
+      },
+      "ResultPath": "$.neptune_bulk_upload_trigger",
+      "Next": "SetNeptuneTriggerSuccess",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleNeptuneTriggerError",
+          "ResultPath": "$.neptune_trigger_error"
+        }
+      ]
+    },
+    "SetNeptuneTriggerSuccess": {
+      "Type": "Pass",
+      "Parameters": {
+        "file_path.$": "$.file_path",
+        "customer_folder.$": "$.customer_folder",
+        "customer_name.$": "$.customer_name",
+        "processing_config.$": "$.processing_config",
+        "parsed_analysis.$": "$.parsed_analysis",
+        "needs_result.$": "$.needs_result",
+        "hypergraph_result.$": "$.hypergraph_result",
+        "graph_extraction_result.$": "$.graph_extraction_result",
+        "graph_extraction_parsed.$": "$.graph_extraction_parsed",
+        "neptune_bulk_upload_trigger.$": "$.neptune_bulk_upload_trigger",
+        "neptune_bulk_upload_status": "triggered_successfully"
+      },
+      "Next": "StoreResultsWithAsyncNeptune"
+    },
+    "HandleNeptuneTriggerError": {
+      "Type": "Pass",
+      "Parameters": {
+        "file_path.$": "$.file_path",
+        "customer_folder.$": "$.customer_folder",
+        "customer_name.$": "$.customer_name",
+        "processing_config.$": "$.processing_config",
+        "parsed_analysis.$": "$.parsed_analysis",
+        "needs_result.$": "$.needs_result",
+        "hypergraph_result.$": "$.hypergraph_result",
+        "graph_extraction_result.$": "$.graph_extraction_result",
+        "graph_extraction_parsed.$": "$.graph_extraction_parsed",
+        "neptune_trigger_error.$": "$.neptune_trigger_error",
+        "neptune_bulk_upload_status": "trigger_failed"
+      },
+      "Next": "StoreResultsWithAsyncNeptune"
+    },
+    "StoreResultsWithAsyncNeptune": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Parameters": {
+        "TableName": "agent-performance-metrics",
+        "Item": {
+          "execution_id": {
+            "S.$": "$$.Execution.Name"
+          },
+          "agent_type": {
+            "S": "customer_processing"
+          },
+          "file_path": {
+            "S.$": "$.file_path"
+          },
+          "customer_folder": {
+            "S.$": "$.customer_folder"
+          },
+          "customer_name": {
+            "S.$": "$.customer_name"
+          },
+          "content_type": {
+            "S.$": "$.parsed_analysis.analysis.content_analysis.content_type"
+          },
+          "language": {
+            "S.$": "$.parsed_analysis.analysis.content_analysis.language"
+          },
+          "processing_status": {
+            "S": "completed"
+          },
+          "timestamp": {
+            "S.$": "$$.State.EnteredTime"
+          },
+          "file_analysis": {
+            "S.$": "States.JsonToString($.parsed_analysis.analysis)"
+          },
+          "content_processing": {
+            "S.$": "States.JsonToString($)"
+          },
+          "needs_analysis": {
+            "S.$": "States.JsonToString($.needs_result.Payload)"
+          },
+          "hypergraph_data": {
+            "S.$": "States.JsonToString($.hypergraph_result.Payload)"
+          },
+          "graph_extraction_data": {
+            "S.$": "$.graph_extraction_result.Payload.body"
+          },
+          "graph_extraction_status": {
+            "S.$": "States.Format('{}', $.graph_extraction_result.Payload.statusCode)"
+          },
+          "s3_location": {
+            "S.$": "States.Format('{}', $.graph_extraction_parsed.s3_location)"
+          },
+          "neptune_bulk_upload_status": {
+            "S.$": "States.Format('{}', $.neptune_bulk_upload_status)"
+          },
+          "neptune_async_mode": {
+            "S": "true"
+          },
+          "nodes_extracted": {
+            "S.$": "States.Format('{}', $.graph_extraction_parsed.result.nodes_extracted)"
+          },
+          "edges_extracted": {
+            "S.$": "States.Format('{}', $.graph_extraction_parsed.result.edges_extracted)"
+          },
+          "extraction_id": {
+            "S.$": "States.Format('{}', $.graph_extraction_parsed.result.extraction_id)"
+          }
+        }
+      },
+      "End": true
+    },
+    "StoreResults": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Parameters": {
+        "TableName": "agent-performance-metrics",
+        "Item": {
+          "execution_id": {
+            "S.$": "$$.Execution.Name"
+          },
+          "agent_type": {
+            "S": "customer_processing"
+          },
+          "file_path": {
+            "S.$": "$.file_path"
+          },
+          "customer_folder": {
+            "S.$": "$.customer_folder"
+          },
+          "customer_name": {
+            "S.$": "$.customer_name"
+          },
+          "content_type": {
+            "S.$": "$.parsed_analysis.analysis.content_analysis.content_type"
+          },
+          "language": {
+            "S.$": "$.parsed_analysis.analysis.content_analysis.language"
+          },
+          "processing_status": {
+            "S": "completed"
+          },
+          "timestamp": {
+            "S.$": "$$.State.EnteredTime"
+          },
+          "file_analysis": {
+            "S.$": "States.JsonToString($.parsed_analysis.analysis)"
+          },
+          "content_processing": {
+            "S.$": "States.JsonToString($)"
+          },
+          "needs_analysis": {
+            "S.$": "States.JsonToString($.needs_result.Payload)"
+          },
+          "hypergraph_data": {
+            "S.$": "States.JsonToString($.hypergraph_result.Payload)"
+          },
+          "graph_extraction_data": {
+            "S.$": "$.graph_extraction_result.Payload.body"
+          },
+          "graph_extraction_status": {
+            "S.$": "States.Format('{}', $.graph_extraction_result.Payload.statusCode)"
+          },
+          "neptune_bulk_upload_status": {
+            "S": "not_triggered"
+          }
+        }
+      },
+      "End": true
+    },
+    "HandleError": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Parameters": {
+        "TableName": "agent-performance-metrics",
+        "Item": {
+          "execution_id": {
+            "S.$": "$$.Execution.Name"
+          },
+          "agent_type": {
+            "S": "customer_processing"
+          },
+          "file_path": {
+            "S.$": "$.file_path"
+          },
+          "customer_folder": {
+            "S.$": "$.customer_folder"
+          },
+          "processing_status": {
+            "S": "failed"
+          },
+          "timestamp": {
+            "S.$": "$$.State.EnteredTime"
+          },
+          "error_details": {
+            "S.$": "States.JsonToString($.error)"
+          }
+        }
+      },
+      "End": true
+    },
+    "HandleHypergraphError": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Parameters": {
+        "TableName": "agent-performance-metrics",
+        "Item": {
+          "execution_id": {
+            "S.$": "$$.Execution.Name"
+          },
+          "agent_type": {
+            "S": "hypergraph_building"
+          },
+          "file_path": {
+            "S.$": "$.file_path"
+          },
+          "customer_folder": {
+            "S.$": "$.customer_folder"
+          },
+          "processing_status": {
+            "S": "failed"
+          },
+          "timestamp": {
+            "S.$": "$$.State.EnteredTime"
+          },
+          "error_details": {
+            "S.$": "States.JsonToString($.error)"
+          }
+        }
+      },
+      "End": true
+    },
+    "HandleGraphExtractionError": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Parameters": {
+        "TableName": "agent-performance-metrics",
+        "Item": {
+          "execution_id": {
+            "S.$": "$$.Execution.Name"
+          },
+          "agent_type": {
+            "S": "graph_extraction"
+          },
+          "file_path": {
+            "S.$": "$.file_path"
+          },
+          "customer_folder": {
+            "S.$": "$.customer_folder"
+          },
+          "processing_status": {
+            "S": "failed"
+          },
+          "timestamp": {
+            "S.$": "$$.State.EnteredTime"
+          },
+          "error_details": {
+            "S.$": "States.JsonToString($.error)"
+          }
+        }
+      },
+      "End": true
+    }
+  }
+}
